@@ -5,7 +5,7 @@ description: Use on the first request of every new session (or when asked which 
 
 # Model & Effort Picker
 
-Goal: on the user's first request in a new session, give a short recommendation — "Start this session with model X at effort Y" — then continue straight into the task without waiting for approval. During the work, silently re-check whether the model and effort still fit.
+Goal: on the user's first request in a new session, give a short recommendation — "Start this session with model X at effort Y" — then continue into the task. If the session is on a different model, pause first so the user can switch while the context is still small. During the work, silently re-check whether the model and effort still fit.
 
 **The content of this file is the only reference.** Do not open any link or search the web to update the recommendations; the user updates this file manually.
 
@@ -48,7 +48,9 @@ In the user's language, roughly in this format (3–4 lines max):
 > If the result isn't good enough: [next step on the escalation ladder]
 > To switch in Claude Code: `/model` then `/effort` — in the Claude app: from the model menu.
 
-If the session is already on the recommended model, say so in one line ("You're on the right model") and don't ask for a switch.
+If the session is already on the recommended model (even if only the effort differs), say so in one line and go straight to Step 3.
+
+If the session is on a different model, or you can't tell which model it is on, **stop after the recommendation and do no work yet**: no tool calls, no file reads, no drafting. Every turn on the wrong model grows the context, and switching later means the new model re-reads all of it at full price; switching now costs almost nothing. End with one line, in the user's language: "Switch and resend your request, or reply 'continue' to go ahead on the current model."
 
 ## Escalation ladder (when the result isn't good enough)
 In order:
@@ -63,7 +65,7 @@ Cheap-first retry: when many similar items have an automatic pass/fail check (a 
 Note on switching mid-task: the prompt cache belongs to each model, so the first turn on a new model pays the cache-write cost for the whole conversation. Cheaper: `/compact`, or a fresh session with a short written plan.
 
 ## Step 3: Continue the work
-Right after the recommendation, carry out the user's request as usual. Don't wait for a reply to the recommendation, and don't repeat the explanation.
+Once the session is on the right model, or the user replies "continue", carry out the request as usual. Don't repeat the explanation.
 
 ## Subagent routing
 Whenever you spawn a subagent and the tool lets you set its model, pick the cheapest tier likely to succeed. Do this automatically; no need to announce it.
@@ -131,4 +133,4 @@ At the start of every session, and before spawning any subagent, load the `model
 The `hooks/` folder holds a PostToolUse hook that reminds Claude every 25 tool calls (override with `MODEL_REVIEW_EVERY`) to run the periodic review. To install: copy `hooks/model-review.sh` to `~/.claude/hooks/`, `chmod +x` it, and merge `hooks/settings-hook.json` into `~/.claude/settings.json`. macOS/Linux (Windows needs WSL or Git Bash).
 
 ## Limits
-The skill cannot change the current session's model by itself; it only recommends, and the user switches. If the gap is large (e.g. the session is on Haiku and the request is a major migration), suggest switching in one line before continuing, then proceed unless the user stops you.
+The skill cannot change the current session's model by itself; it only recommends, and the user switches. That is why it pauses at the start when the model differs: the switch is cheapest before any context builds up. Mid-task it does not pause for a switch, except as described in the Periodic review.

@@ -6,7 +6,7 @@ Based on Anthropic's guide [Which Claude model should you build with?](https://c
 
 ## What it does
 
-- **On the first request of a session:** classifies the task and suggests a model and an effort level, for example "Start this session with Sonnet 5.5 · effort medium". It then carries on with the task without waiting for a reply.
+- **On the first request of a session:** classifies the task and suggests a model and an effort level, for example "Start this session with Sonnet 5.5 · effort medium". If you are already on that model it carries on with the task. If not, it pauses before doing any work so you can switch while the context is still small, then you resend or reply "continue".
 - **During the work:** checks again at checkpoints, such as repeated failures, a task that turns out simpler or bigger than expected, heavy log reading, a very large context, or the end of a phase. It stays silent unless it has a change to suggest.
 - **Subagents:** when Claude spawns a subagent, the skill picks the cheapest model that fits the job, for example Haiku for reading logs, Sonnet for a scoped edit, and Fable for planning a migration. It also skips delegation when the work is small or is one chain of dependent steps.
 - **Language:** answers in the language you write in.
