@@ -1,6 +1,6 @@
 ---
 name: model-effort-picker
-description: Use on the first request of every new session (or when asked which model/effort to use) to recommend the Claude model and effort level to start with, from the built-in selection table, then continue the task and re-check the fit silently at checkpoints during the work.
+description: Use on the first request of every new session (or when asked which model/effort to use) to recommend the Claude model and effort level to start with, and before spawning any subagent to pick its model. Then continue the task and re-check the fit silently at checkpoints during the work.
 ---
 
 # Model & Effort Picker
@@ -58,10 +58,31 @@ In order:
 
 Special case: **before raising Opus 5.5 past high on a hard task, try Fable 5.2 at high.** In the source, Fable 5.2 at high matched Opus 5.5 at max for roughly half the cost per task.
 
+Cheap-first retry: when many similar items have an automatic pass/fail check (a batch of tests, tickets, extractions), run them all at low effort first, then re-run only the failures at high. In the source this passed more tasks than running everything at high, for less money.
+
 Note on switching mid-task: the prompt cache belongs to each model, so the first turn on a new model pays the cache-write cost for the whole conversation. Cheaper: `/compact`, or a fresh session with a short written plan.
 
 ## Step 3: Continue the work
 Right after the recommendation, carry out the user's request as usual. Don't wait for a reply to the recommendation, and don't repeat the explanation.
+
+## Subagent routing
+Whenever you spawn a subagent and the tool lets you set its model, pick the cheapest tier likely to succeed. Do this automatically; no need to announce it.
+
+| Subagent job | Model |
+|---|---|
+| Finding files, grep, reading logs, running tests and reporting results, summarizing long output | Haiku |
+| Classification, tagging, routing, field extraction, high-volume checkable work | Haiku |
+| Well-scoped edits against a clear spec, contained bug fixes | Sonnet |
+| Repeated agent tasks (investigation, review, drafting), everyday documents | Sonnet |
+| Multi-file features, tricky debugging, computer use, vision-heavy work | Opus |
+| Major refactors or migrations, architecture planning, deep research, quantitative analysis | Fable |
+| Unsure | Opus |
+
+- Leave subagent effort at the model's default; raise it only through the escalation ladder.
+- Small models fit work where a mistake is cheap to spot. Keep subtle or judgment-heavy edits on the main model.
+- If the subagent tool has no model setting, skip this section.
+
+**When not to delegate at all:** the work is one chain of dependent steps, it fits comfortably in the current context, or it is only a few tool calls. Delegation pays off for verbose reading (logs, wide file sweeps) and genuinely parallel work, because it keeps the expensive model's context lean.
 
 ## Periodic review during execution
 At each checkpoint, silently ask yourself: do the current model and effort still fit, according to the table?
@@ -96,6 +117,15 @@ These don't go in the opening recommendation by default; bring one up only when 
 - **Avoid `opusplan` as a default:** it plans with Opus then executes with Sonnet, putting code edits on the smaller model — the reverse of this guidance. Measure it on real tasks first.
 - **Lead + workers for bulk work:** for work bigger than one context window, an Opus 5.5 lead splits the task and hands pieces to parallel Sonnet 5.5 workers. In the source this cost about a third less than Opus alone with similar quality. Skip it for a single chain of dependent steps or work that fits in one context window.
 - **Quick comparison:** to check which model suits the user's own work, run the same backlog task on two models using `/model`, then compare with `/usage`.
+- **Judge by cost per finished task, not price per token:** a pricier model that finishes in fewer tokens or fewer retries can be cheaper overall. A mixed-model setup is worth keeping only if it beats every single-model run on real tasks.
+
+## Optional: always-on trigger for Claude Code
+To make sure the skill loads every session, add this to `~/.claude/CLAUDE.md`:
+
+```markdown
+## Model routing
+At the start of every session, and before spawning any subagent, load the `model-effort-picker` skill and follow it: recommend the session's model and effort on the first request, and set each subagent's model from its routing table.
+```
 
 ## Optional: periodic-review hook for Claude Code
 The `hooks/` folder holds a PostToolUse hook that reminds Claude every 25 tool calls (override with `MODEL_REVIEW_EVERY`) to run the periodic review. To install: copy `hooks/model-review.sh` to `~/.claude/hooks/`, `chmod +x` it, and merge `hooks/settings-hook.json` into `~/.claude/settings.json`. macOS/Linux (Windows needs WSL or Git Bash).

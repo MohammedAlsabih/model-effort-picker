@@ -8,6 +8,7 @@ Based on Anthropic's guide [Which Claude model should you build with?](https://c
 
 - **On the first request of a session:** classifies the task and suggests a model and an effort level, for example "Start this session with Sonnet 5.5 · effort medium". It then carries on with the task without waiting for a reply.
 - **During the work:** checks again at checkpoints, such as repeated failures, a task that turns out simpler or bigger than expected, heavy log reading, a very large context, or the end of a phase. It stays silent unless it has a change to suggest.
+- **Subagents:** when Claude spawns a subagent, the skill picks the cheapest model that fits the job, for example Haiku for reading logs, Sonnet for a scoped edit, and Fable for planning a migration. It also skips delegation when the work is small or is one chain of dependent steps.
 - **Language:** answers in the language you write in.
 
 The skill only recommends. You switch models yourself, with `/model` and `/effort` in Claude Code or from the model menu in the Claude app.
@@ -26,6 +27,13 @@ mkdir -p ~/.claude/skills
 cp -r model-effort-picker/model-effort-picker ~/.claude/skills/
 ```
 Then run `/skills` in Claude Code to check that `model-effort-picker` is listed.
+
+To make sure the skill loads in every session and before every subagent, add this to `~/.claude/CLAUDE.md`:
+
+```markdown
+## Model routing
+At the start of every session, and before spawning any subagent, load the `model-effort-picker` skill and follow it: recommend the session's model and effort on the first request, and set each subagent's model from its routing table.
+```
 
 ## Optional: periodic-review hook (Claude Code only)
 
